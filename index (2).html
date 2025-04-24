@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Tic Tac Toe - AI vs Player</title>
+    <style>
+        :root {
+            --neon-primary: #ff69b4;
+            --neon-secondary: #00ff00;
+            --neon-glow: rgba(255, 105, 180, 0.3);
+        }
+
+        body {
+            background-color: #0a0a0a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            font-family: 'Arial', sans-serif;
+        }
+
+        .splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            color: var(--neon-primary);
+            font-size: 3rem;
+            text-shadow: 0 0 10px var(--neon-primary);
+            animation: fadeOut 3s forwards;
+        }
+
+        @keyframes fadeOut {
+            0% { opacity: 1; }
+            80% { opacity: 1; }
+            100% { opacity: 0; visibility: hidden; }
+        }
+
+        .difficulty-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .difficulty-btn {
+            padding: 8px 15px;
+            background-color: #2a2a2a;
+            border: 2px solid var(--neon-primary);
+            color: var(--neon-primary);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .difficulty-btn.active {
+            background-color: var(--neon-primary);
+            color: #0a0a0a;
+            box-shadow: 0 0 15px var(--neon-glow);
+        }
+
+        .difficulty-info {
+            color: var(--neon-primary);
+            margin-bottom: 15px;
+            text-align: center;
+            max-width: 300px;
+            font-size: 14px;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            background-color: #1a1a1a;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px var(--neon-glow);
+        }
+
+        .cell {
+            width: 100px;
+            height: 100px;
+            background-color: #2a2a2a;
+            border: 2px solid var(--neon-primary);
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            cursor: pointer;
+            color: var(--neon-primary);
+            text-shadow: 0 0 10px var(--neon-primary);
+            transition: all 0.3s ease;
+        }
+
+        .cell:hover {
+            background-color: #3a3a3a;
+            box-shadow: 0 0 15px var(--neon-glow);
+        }
+
+        .cell.x {
+            color: var(--neon-primary);
+            text-shadow: 0 0 10px var(--neon-primary);
+            border-color: var(--neon-primary);
+        }
+
+        .cell.o {
+            color: var(--neon-secondary);
+            text-shadow: 0 0 10px var(--neon-secondary);
+            border-color: var(--neon-secondary);
+        }
+
+        .status {
+            color: var(--neon-primary);
+            font-size: 24px;
+            margin: 20px 0;
+            animation: glow 1.5s infinite alternate;
+        }
+
+        .reset-btn {
+            padding: 10px 20px;
+            background-color: #2a2a2a;
+            border: 2px solid var(--neon-primary);
+            color: var(--neon-primary);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+            animation: btn-glow 2s infinite;
+        }
+
+        @keyframes glow {
+            0% { text-shadow: 0 0 5px var(--neon-primary); }
+            100% { text-shadow: 0 0 20px var(--neon-primary), 0 0 30px var(--neon-primary); }
+        }
+
+        @keyframes btn-glow {
+            0% { box-shadow: 0 0 5px var(--neon-primary); }
+            50% { box-shadow: 0 0 20px var(--neon-primary); }
+            100% { box-shadow: 0 0 5px var(--neon-primary); }
+        }
+    </style>
+</head>
+<body>
+    <div class="splash-screen">
+        Ghost Studio Presents
+    </div>
+
+    <div class="container">
+        <div class="difficulty-selector">
+            <button class="difficulty-btn active" data-difficulty="easy">Easy</button>
+            <button class="difficulty-btn" data-difficulty="medium">Medium</button>
+            <button class="difficulty-btn" data-difficulty="hard">Hard</button>
+        </div>
+        
+        <div class="difficulty-info" id="difficultyInfo">
+            Easy: AI makes random moves (Player win chance: 90%)
+        </div>
+        
+        <div class="status" id="status">Player's Turn (X)</div>
+        <div class="board" id="board">
+            <div class="cell" data-cell></div>
+            <div class="cell" data-cell></div>
+            <div class="cell" data-cell></div>
+            <div class="cell" data-cell></div>
+            <div class="cell" data-cell></div>
+            <div class="cell" data-cell></div>
+            <div class="cell" data-cell></div>
+            <div class="cell" data-cell></div>
+            <div class="cell" data-cell></div>
+        </div>
+        <button class="reset-btn" id="resetBtn">New Game</button>
+    </div>
+
+    <script>
+        const neonColors = [
+            { primary: '#ff69b4', secondary: '#00ff00', glow: 'rgba(255, 105, 180, 0.3)' },
+            { primary: '#00ffff', secondary: '#ff00ff', glow: 'rgba(0, 255, 255, 0.3)' },
+            { primary: '#ff4500', secondary: '#7fff00', glow: 'rgba(255, 69, 0, 0.3)' },
+            { primary: '#9400d3', secondary: '#00ff7f', glow: 'rgba(148, 0, 211, 0.3)' }
+        ];
+
+        const board = document.getElementById('board');
+        const cells = document.querySelectorAll('[data-cell]');
+        const status = document.getElementById('status');
+        const resetBtn = document.getElementById('resetBtn');
+        const difficultyBtns = document.querySelectorAll('.difficulty-btn');
+        const difficultyInfo = document.getElementById('difficultyInfo');
+        let playerTurn = true;
+        const PLAYER = 'X';
+        const AI_PLAYER = 'O';
+        let currentColorIndex = 0;
+        let difficulty = 'easy';
+
+        const winCombos = [
+            [0, 1, 2], [3, 4, 5], [6, 7, 8],
+            [0, 3, 6], [1, 4, 7], [2, 5, 8],
+            [0, 4, 8], [2, 4, 6]
+        ];
+
+        // Set up difficulty buttons
+        difficultyBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                difficultyBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                difficulty = btn.dataset.difficulty;
+                
+                // Update difficulty info text
+                switch(difficulty) {
+                    case 'easy':
+                        difficultyInfo.textContent = "Easy: AI makes random moves (Player win chance: 90%)";
+                        break;
+                    case 'medium':
+                        difficultyInfo.textContent = "Medium: AI tries to win but doesn't always block (Player win chance: 60%)";
+                        break;
+                    case 'hard':
+                        difficultyInfo.textContent = "Hard: AI plays optimally (Player win chance: 10%)";
+                        break;
+                }
+                
+                initializeGame();
+            });
+        });
+
+        initializeGame();
+        resetBtn.addEventListener('click', initializeGame);
+
+        function initializeGame() {
+            // Change neon colors randomly
+            currentColorIndex = Math.floor(Math.random() * neonColors.length);
+            const colors = neonColors[currentColorIndex];
+            document.documentElement.style.setProperty('--neon-primary', colors.primary);
+            document.documentElement.style.setProperty('--neon-secondary', colors.secondary);
+            document.documentElement.style.setProperty('--neon-glow', colors.glow);
+
+            // Reset game state
+            playerTurn = true;
+            status.textContent = "Player's Turn (X)";
+            status.style.animation = 'glow 1.5s infinite alternate';
+            
+            // Reset cells
+            cells.forEach(cell => {
+                cell.textContent = '';
+                cell.classList.remove('x', 'o');
+                cell.removeEventListener('click', handlePlayerMove);
+                cell.addEventListener('click', handlePlayerMove, { once: true });
+            });
+        }
+
+        function handlePlayerMove(e) {
+            if (!playerTurn) return;
+            
+            const cell = e.target;
+            placeMark(cell, PLAYER);
+            
+            if (checkWin(PLAYER)) {
+                endGame("Player Wins!");
+                return;
+            }
+            
+            if (isDraw()) {
+                endGame("Draw!");
+                return;
+            }
+
+            playerTurn = false;
+            status.textContent = "AI's Turn (O)";
+            
+            setTimeout(makeAIMove, 1000);
+        }
+
+        function makeAIMove() {
+            let bestMove;
+            
+            switch(difficulty) {
+                case 'easy':
+                    bestMove = makeRandomMove();
+                    break;
+                case 'medium':
+                    bestMove = makeMediumMove();
+                    break;
+                case 'hard':
+                    bestMove = makeBestMove();
+                    break;
+                default:
+                    bestMove = makeRandomMove();
+            }
+            
+            placeMark(cells[bestMove], AI_PLAYER);
+            
+            if (checkWin(AI_PLAYER)) {
+                endGame("AI Wins!");
+                return;
+            }
+            
+            if (isDraw()) {
+                endGame("Draw!");
+                return;
+            }
+            
+            playerTurn = true;
+            status.textContent = "Player's Turn (X)";
+        }
+
+        function makeRandomMove() {
+            const availableCells = [...cells].map((cell, index) => cell.textContent === '' ? index : null).filter(cell => cell !== null);
+            return availableCells[Math.floor(Math.random() * availableCells.length)];
+        }
+
+        function makeMediumMove() {
+            // 60% chance to block player or make winning move
+            if (Math.random() < 0.6) {
+                // Try to win if possible
+                for (let combo of winCombos) {
+                    const [a, b, c] = combo;
+                    if (cells[a].textContent === AI_PLAYER && cells[b].textContent === AI_PLAYER && !cells[c].textContent) return c;
+                    if (cells[a].textContent === AI_PLAYER && cells[c].textContent === AI_PLAYER && !cells[b].textContent) return b;
+                    if (cells[b].textContent === AI_PLAYER && cells[c].textContent === AI_PLAYER && !cells[a].textContent) return a;
+                }
+
+                // Try to block player if they can win
+                for (let combo of winCombos) {
+                    const [a, b, c] = combo;
+                    if (cells[a].textContent === PLAYER && cells[b].textContent === PLAYER && !cells[c].textContent) return c;
+                    if (cells[a].textContent === PLAYER && cells[c].textContent === PLAYER && !cells[b].textContent) return b;
+                    if (cells[b].textContent === PLAYER && cells[c].textContent === PLAYER && !cells[a].textContent) return a;
+                }
+            }
+            
+            // Otherwise make random move
+            return makeRandomMove();
+        }
+
+        function makeBestMove() {
+            // Try to win if possible
+            for (let combo of winCombos) {
+                const [a, b, c] = combo;
+                if (cells[a].textContent === AI_PLAYER && cells[b].textContent === AI_PLAYER && !cells[c].textContent) return c;
+                if (cells[a].textContent === AI_PLAYER && cells[c].textContent === AI_PLAYER && !cells[b].textContent) return b;
+                if (cells[b].textContent === AI_PLAYER && cells[c].textContent === AI_PLAYER && !cells[a].textContent) return a;
+            }
+
+            // Block player if they can win
+            for (let combo of winCombos) {
+                const [a, b, c] = combo;
+                if (cells[a].textContent === PLAYER && cells[b].textContent === PLAYER && !cells[c].textContent) return c;
+                if (cells[a].textContent === PLAYER && cells[c].textContent === PLAYER && !cells[b].textContent) return b;
+                if (cells[b].textContent === PLAYER && cells[c].textContent === PLAYER && !cells[a].textContent) return a;
+            }
+
+            // 10% chance to make a suboptimal move
+            if (Math.random() < 0.1) {
+                return makeRandomMove();
+            }
+
+            // Take center if available
+            if (cells[4].textContent === '') return 4;
+            
+            // Take a corner if available
+            const corners = [0, 2, 6, 8];
+            const emptyCorners = corners.filter(index => cells[index].textContent === '');
+            if (emptyCorners.length > 0) return emptyCorners[Math.floor(Math.random() * emptyCorners.length)];
+            
+            // Otherwise random move
+            return makeRandomMove();
+        }
+
+        function placeMark(cell, player) {
+            cell.textContent = player;
+            cell.classList.add(player.toLowerCase());
+        }
+
+        function checkWin(player) {
+            return winCombos.some(combo => {
+                return combo.every(index => {
+                    return cells[index].classList.contains(player.toLowerCase());
+                });
+            });
+        }
+
+        function isDraw() {
+            return [...cells].every(cell => cell.textContent !== '');
+        }
+
+        function endGame(message) {
+            status.textContent = message;
+            status.style.animation = 'none';
+            cells.forEach(cell => cell.removeEventListener('click', handlePlayerMove));
+            
+            // Auto-restart after 2 seconds
+            setTimeout(initializeGame, 2000);
+        }
+    </script>
+</body>
+</html>
